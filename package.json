@@ -1,5 +1,5 @@
 {
-  "name": "nodebb-plugin-sso-keycloak",
+  "name": "nodebb-plugin-sso-keycloak2",
   "version": "0.1.0",
   "description": "NodeBB Keycloak SSO",
   "main": "library.js",
