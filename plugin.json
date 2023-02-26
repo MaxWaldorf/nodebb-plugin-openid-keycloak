@@ -2,7 +2,7 @@
 	"id": "nodebb-plugin-sso-keycloak",
 	"name": "NodeBB Wordpress SSO",
 	"description": "Allows users to log in via a configured Wordpress account",
-	"url": "https://github.com/MaxWaldorf/nodebb-plugin-sso-keycloak",
+	"url": "https://github.com/MaxWaldorf/nodebb-plugin-sso-keycloak2",
 	"library": "./library.js",
 	"hooks": [
 		{ "hook": "static:app.preload", "method": "addMiddleware" },
