@@ -27,12 +27,6 @@
 				<label for="scope">Client Scope</label>
 				<input type="text" name="scope" id="scope" title="Client Scope" class="form-control" placeholder="Client Scope"/ >
 			</div>
-			<div class="checkbox">
-				<label class="mdl-switch mdl-js-switch mdl-js-ripple-effect">
-					<input class="mdl-switch__input" type="checkbox" name="redirectEnabled">
-					<span class="mdl-switch__label"><strong>Automatically redirect guests to Keycloak SSO</strong></span>
-				</label>
-			</div>
 		</form>
 	</div>
 </div>
