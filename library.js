@@ -14,10 +14,12 @@
 			pluginStrategies = [],
 			OAuth = {}, passportOAuth, opts;
 
+
 	OAuth.init = function(params, callback) {
 		var router = params.router,
-				hostControllers = params.controllers,
-				controllers = require('./controllers');
+			hostMiddleware = params.middleware,
+			hostControllers = params.controllers,
+			controllers = require('./controllers');
 
 		router.get('/admin/plugins/sso-keycloak', hostMiddleware.admin.buildHeader, controllers.renderAdminPage);
 		router.get('/api/admin/plugins/sso-keycloak', controllers.renderAdminPage);
@@ -56,48 +58,53 @@
 		callback(null, header);
 	};
 
-	OAuth.getStrategy = function (strategies, callback) {
-		passportOAuth = require('passport-oauth').OAuth2Strategy;
+	OAuth.getStrategy = function(strategies, callback) {
+		if (pluginStrategies.length) {
+			winston.verbose('[plugin/sso-keycloak] Configuring SSO login for ' + pluginStrategies.length + ' install(s)');
 
-		opts = pluginStrategies[0].oauth2;
-		opts.callbackURL = nconf.get('url') + '/auth/' + pluginStrategies[0].name + '/callback';
+			passportOAuth = require('passport-oauth').OAuth2Strategy;
+			opts = pluginStrategies[0].oauth2;
+			opts.callbackURL = nconf.get('url') + '/auth/' + pluginStrategies[0].name + '/callback';
 
-			passportOAuth.Strategy.prototype.userProfile = function (accessToken, done) {
-
-				// If your OAuth provider requires the access token to be sent in the query  parameters
-				// instead of the request headers, comment out the next line:
-				this._oauth2._useAuthorizationHeaderForGET = true;
-
-				this._oauth2.get(pluginStrategies[0].userRoute, accessToken, function (err, body/* , res */) {
-					if (err) {
-						return done(err);
-					}
+			passportOAuth.Strategy.prototype.userProfile = function(accessToken, done) {
+				this._oauth2.get(pluginStrategies[0].userRoute, accessToken, function(err, body, res) {
+					if (err) { return done(new InternalOAuthError('failed to fetch user profile', err)); }
 
 					try {
 						var json = JSON.parse(body);
-						OAuth.parseUserReturn(json, function (err, profile) {
+						OAuth.parseUserReturn(json, function(err, profile) {
 							if (err) return done(err);
 							profile.provider = pluginStrategies[0].name;
 							done(null, profile);
 						});
-					} catch (e) {
+					} catch(e) {
 						done(e);
 					}
 				});
 			};
 
-			opts.passReqToCallback = true;
-
-			passport.use(pluginStrategies[0].name, new passportOAuth(opts, async (req, token, secret, profile, done) => {
-				const user = await OAuth.login({
+			passport.use(pluginStrategies[0].name, new passportOAuth(opts, function(token, secret, profile, done) {
+				OAuth.login({
 					oAuthid: profile.id,
 					handle: profile.displayName,
 					email: profile.emails[0].value,
 					isAdmin: profile.isAdmin,
-				});
+				}, function(err, user) {
+					if (err) {
+						return done(err);
+					}
 
-				authenticationController.onSuccessfulLogin(req, user.uid);
-				done(null, user);
+					plugins.hooks.fire('static:sso-keycloak.login', {
+						user: user,
+						strategy: pluginStrategies[0],
+						profile: profile/*,
+						token: token,
+						secret: secret*/
+					}, function() {
+						authenticationController.onSuccessfulLogin(req, user.uid);
+						done(null, user);
+					});
+				});
 			}));
 
 			strategies.push({
@@ -105,34 +112,11 @@
 				url: '/auth/' + pluginStrategies[0].name,
 				callbackURL: '/auth/' + pluginStrategies[0].name + '/callback',
 				icon: 'fa-key',
-				scope: (pluginStrategies[0].scope || '').split(','),
+				scope: (pluginStrategies[0].scope || '').split(',')
 			});
+		}
 
-			callback(null, strategies);
-	};
-
-	OAuth.parseUserReturn = function (data, callback) {
-		// Alter this section to include whatever data is necessary
-		// NodeBB *requires* the following: id, displayName, emails.
-		// Everything else is optional.
-
-		// Find out what is available by uncommenting this line:
-		console.log(data);
-
-		var profile = {};
-		profile.id = data.id;
-		profile.displayName = data.name;
-		profile.emails = [{ value: data.email }];
-
-		// Do you want to automatically make somebody an admin? This line might help you do that...
-		profile.isAdmin = data.isAdmin ? true : false;
-
-		// Delete or comment out the next TWO (2) lines when you are ready to proceed
-		//process.stdout.write('===\nAt this point, you\'ll need to customise the above section to id, displayName, and emails into the "profile" object.\n===');
-		//return callback(new Error('Congrats! So far so good -- please see server log for details'));
-
-		// eslint-disable-next-line
-		callback(null, profile);
+		callback(null, strategies);
 	};
 
 	OAuth.login = async (payload) => {
