@@ -1,5 +1,3 @@
-38 lines (38 sloc)  786 Bytes
-
 {
   "name": "nodebb-plugin-openid-keycloak",
   "version": "0.1.8",
