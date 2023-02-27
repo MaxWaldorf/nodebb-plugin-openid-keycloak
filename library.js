@@ -1,179 +1,145 @@
 'use strict';
 
-(function(module) {
+const passport = module.parent.require('passport');
+const nconf = module.parent.require('nconf');
+const winston = module.parent.require('winston');
 
-	var User = require.main.require('./src/user'),
-			Groups = require.main.require('./src/groups'),
-			meta = require.main.require('./src/meta'),
-			db = require.main.require('./src/database'),
-			passport = require.main.require('passport'),
-			nconf = require.main.require('nconf'),
-			winston = require.main.require('winston'),
-			async = require('async'),
+const { Issuer, Strategy, custom } = require('openid-client');
 
-			pluginStrategies = [],
-			OAuth = {}, passportOAuth, opts;
+const AUTH_OIDC_BASE_PATH = '/auth/oidc';
+const AUTH_OIDC_LOGIN_PATH = `${AUTH_OIDC_BASE_PATH}/login`;
+const AUTH_OIDC_CALLBACK_PATH = `${AUTH_OIDC_BASE_PATH}/callback`;
+const CLOCK_TOLERANCE = 10;
 
+const controllers = require('./lib/controllers');
 
-	OAuth.init = function(params, callback) {
-		var router = params.router,
-			hostMiddleware = params.middleware,
-			hostControllers = params.controllers,
-			controllers = require('./controllers');
+const { UserHelper, SettingsHelper } = require('./lib/helpers');
 
-		router.get('/admin/plugins/sso-keycloak', hostMiddleware.admin.buildHeader, controllers.renderAdminPage);
-		router.get('/api/admin/plugins/sso-keycloak', controllers.renderAdminPage);
+/**
+		* Initializes the plugin
+		* @param {Object} data
+		* @param {Function} callback
+		*/
+async function init({ router, middleware }, callback) {
+	try {
+		winston.info('Setting up OpenID Connect UI routes...');
 
-		meta.settings.get('sso-keycloak', function(err, settings) {
-			if (settings && ['url', 'id', 'secret'].every(function(key) {
-				return settings.hasOwnProperty(key) && settings[key]
-			})) {
-				pluginStrategies.push({
-					name: 'keycloak2',
-					oauth2: {
-						authorizationURL: settings.url + '/realms/master/protocol/openid-connect/auth',
-						tokenURL: settings.url + '/realms/master/protocol/openid-connect/token',
-						clientID: settings.id,
-						clientSecret: settings.secret
-					},
-					scope: settings.scope,
-					userRoute: settings.url + '/realms/master/protocol/openid-connect/userinfo'
-				});
+		router.get('/admin/plugins/oidc', middleware.admin.buildHeader, controllers.renderAdminPage);
+		router.get('/api/admin/plugins/oidc', controllers.renderAdminPage);
 
-				callback();
-			} else {
-				winston.verbose('[plugin/sso-keycloak] Please complete configuration for Keycloak SSO login');
-				callback();
-			}
-		});
-	};
+		callback();
+	} catch (err) {
+		callback(err);
+	}
+}
 
-	OAuth.addAdminNavigation = function(header, callback) {
-		header.authentication.push({
-			route: '/plugins/sso-keycloak',
-			icon: 'fa-key',
-			name: 'Keycloak'
-		});
+/**
+		* Adds menu item in admin.
+		* @param {Object} header
+		* @param {Function} callback
+		*/
+async function addMenuItem(header, callback) {
+	header.authentication.push({
+		route: '/plugins/oidc',
+		icon: 'fa-key',
+		name: 'OpenID Connect',
+	});
+	callback(null, header);
+}
 
-		callback(null, header);
-	};
+/**
+		* Finds or Creates the logged user as needed.
+		* @param {TokenSet} tokenSet
+		* @param {Object} profile
+		* @param {Function} callback
+		*/
+async function verify(tokenSet, profile, callback) {
+	try {
+		const claims = tokenSet.claims();
+		let uid = await UserHelper.getUidByIssuerAndSubject(claims.iss, claims.sub);
 
-	OAuth.getStrategy = function(strategies, callback) {
-		if (pluginStrategies.length) {
-			winston.verbose('[plugin/sso-keycloak] Configuring SSO login for ' + pluginStrategies.length + ' install(s)');
-
-			passportOAuth = require('passport-oauth').OAuth2Strategy;
-			opts = pluginStrategies[0].oauth2;
-			opts.callbackURL = nconf.get('url') + '/auth/' + pluginStrategies[0].name + '/callback';
-
-			passportOAuth.Strategy.prototype.userProfile = function(accessToken, done) {
-				this._oauth2.get(pluginStrategies[0].userRoute, accessToken, function(err, body, res) {
-					if (err) { return done(new InternalOAuthError('failed to fetch user profile', err)); }
-
-					try {
-						var json = JSON.parse(body);
-						OAuth.parseUserReturn(json, function(err, profile) {
-							if (err) return done(err);
-							profile.provider = pluginStrategies[0].name;
-							done(null, profile);
-						});
-					} catch(e) {
-						done(e);
-					}
-				});
-			};
-
-			passport.use(pluginStrategies[0].name, new passportOAuth(opts, function(token, secret, profile, done) {
-				OAuth.login({
-					oAuthid: profile.id,
-					handle: profile.displayName,
-					email: profile.emails[0].value,
-					isAdmin: profile.isAdmin,
-				}, function(err, user) {
-					if (err) {
-						return done(err);
-					}
-
-					plugins.hooks.fire('static:sso-keycloak.login', {
-						user: user,
-						strategy: pluginStrategies[0],
-						profile: profile/*,
-						token: token,
-						secret: secret*/
-					}, function() {
-						authenticationController.onSuccessfulLogin(req, user.uid);
-						done(null, user);
-					});
-				});
-			}));
-
-			strategies.push({
-				name: pluginStrategies[0].name,
-				url: '/auth/' + pluginStrategies[0].name,
-				callbackURL: '/auth/' + pluginStrategies[0].name + '/callback',
-				icon: 'fa-key',
-				scope: (pluginStrategies[0].scope || '').split(',')
-			});
+		if (uid) {
+			callback(null, { uid });
+			return;
 		}
+
+		uid = await UserHelper.create({
+			username: claims.preferred_username || claims.email,
+			email: String(claims.email).toLowerCase(),
+			oidcIssuer: claims.iss,
+			oidcSubject: claims.sub,
+		});
+
+		callback(null, { uid });
+	} catch (err) {
+		callback(err);
+	}
+}
+
+/**
+		* Creates the Passport Strategy to login with OpenID Connect.
+		*
+		* @param {Array} strategies
+		* @param {Function} callback
+		*/
+async function getStrategy(strategies, callback) {
+	try {
+		const config = await SettingsHelper.get('oidc');
+
+		if (!config.discoverUrl || !config.clientId || !config.clientSecret) {
+			winston.warn('[oidc] OpenID Connect configuration missing, disabling.');
+			callback(null, strategies);
+			return;
+		}
+		winston.verbose('[oidc] Fetching OpenID Connect Issuer informations ...');
+
+		const issuer = await Issuer.discover(config.discoverUrl);
+
+		winston.verbose('[oidc] Creating OpenID Connect Passport Strategy ...');
+
+		const client = new issuer.Client({
+			client_id: config.clientId,
+			client_secret: config.clientSecret,
+			redirect_uris: [nconf.get('url') + AUTH_OIDC_CALLBACK_PATH],
+		});
+
+		// Adding some timestamp tolerance as they may be a little different
+		// if nodebb and the OpenID Connect server are on two separate
+		// hosts.
+		client[custom.clock_tolerance] = CLOCK_TOLERANCE;
+
+		const strategy = new Strategy({
+			client,
+			params: {
+				// In OpenID Connect,
+				// => issuer and subject in the 'openid' scope
+				// => email in the 'email' scope
+				// => username in the 'profile' scope ( as 'preferred_username' )
+				// scope: 'openid email profile'
+			},
+		}, verify);
+
+		passport.use(strategy.name, strategy);
+
+		strategies.push({
+			name: strategy.name,
+			url: AUTH_OIDC_LOGIN_PATH,
+			callbackURL: AUTH_OIDC_CALLBACK_PATH,
+			icon: 'fa-key',
+			scope: 'openid email profile',
+		});
+
+		winston.verbose('[oidc] Strategy initialized ...');
 
 		callback(null, strategies);
-	};
+	} catch (err) {
+		winston.error(err);
+		callback(err);
+	}
+}
 
-	OAuth.login = async (payload) => {
-		let uid = await OAuth.getUidByOAuthid(payload.oAuthid);
-		if (uid !== null) {
-			// Existing User
-			return ({
-				uid: uid,
-			});
-		}
-
-		// Check for user via email fallback
-		uid = await User.getUidByEmail(payload.email);
-		if (!uid) {
-			// New user
-			uid = await User.create({
-				username: payload.handle,
-				email: payload.email,
-			});
-		}
-
-		// Save provider-specific information to the user
-		await User.setUserField(uid, pluginStrategies[0].name + 'Id', payload.oAuthid);
-		await db.setObjectField(pluginStrategies[0].name + 'Id:uid', payload.oAuthid, uid);
-
-		if (payload.isAdmin) {
-			await Groups.join('administrators', uid);
-		}
-
-		return {
-			uid: uid,
-		};
-	};
-
-	OAuth.getUidByOAuthid = async (oAuthid) => db.getObjectField(pluginStrategies[0].name + 'Id:uid', oAuthid);
-
-	OAuth.deleteUserData = function (data, callback) {
-		async.waterfall([
-			async.apply(User.getUserField, data.uid, pluginStrategies[0].name + 'Id'),
-			function (oAuthIdToDelete, next) {
-				db.deleteObjectField(pluginStrategies[0].name + 'Id:uid', oAuthIdToDelete, next);
-			},
-		], function (err) {
-			if (err) {
-				winston.error('[sso-keycloak] Could not remove OAuthId data for uid ' + data.uid + '. Error: ' + err);
-				return callback(err);
-			}
-
-			callback(null, data);
-		});
-	};
-
-	// If this filter is not there, the deleteUserData function will fail when getting the oauthId for deletion.
-	OAuth.whitelistFields = function (params, callback) {
-		params.whitelist.push(pluginStrategies[0].name + 'Id');
-		callback(null, params);
-	};
-
-	module.exports = OAuth;
-}(module));
+module.exports = {
+	init,
+	addMenuItem,
+	getStrategy,
+};

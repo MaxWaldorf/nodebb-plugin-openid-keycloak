@@ -1,11 +1,13 @@
+38 lines (38 sloc)  786 Bytes
+
 {
-  "name": "nodebb-plugin-sso-keycloak2",
-  "version": "0.1.7",
+  "name": "nodebb-plugin-openid-keycloak",
+  "version": "0.1.8",
   "description": "NodeBB Keycloak SSO",
   "main": "library.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MaxWaldorf/nodebb-plugin-sso-keycloak2"
+    "url": "https://github.com/MaxWaldorf/nodebb-plugin-openid-keycloak"
   },
   "keywords": [
     "nodebb",
@@ -23,16 +25,18 @@
     "email": "max_waldorf@outlook.com"
   },
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/MaxWaldorf/nodebb-plugin-sso-keycloak2/issues"
-  },
-  "readme": "",
-  "readmeFilename": "README.md",
-  "dependencies": {
-    "async": "^3.2.0",
-    "passport-oauth": "~1.0.0"
-  },
-  "nbbpm": {
-    "compatibility": "^1.17.0 || ^2.0.0"
-  }
+	"bugs": {
+		"url": "https://github.com/MaxWaldorf/nodebb-plugin-openid-keycloak/issues"
+	},
+	"nbbpm": {
+		"compatibility": "^1.12.2"
+	},
+	"devDependencies": {
+		"eslint": "^5.16.0",
+		"eslint-config-airbnb-base": "^12.1.0",
+		"eslint-plugin-import": "^2.8.0"
+	},
+	"dependencies": {
+		"openid-client": "^3.7.4"
+	}
 }

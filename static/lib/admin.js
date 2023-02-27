@@ -1,24 +1,23 @@
 'use strict';
 
-define('admin/plugins/sso-keycloak', ['settings'], function(Settings) {
-	/* globals $, app, socket, require */
+/* globals $, app, socket, define */
 
+define('admin/plugins/oidc', ['settings'], function (Settings) {
 	var ACP = {};
 
-	ACP.init = function() {
-		Settings.load('sso-keycloak', $('.sso-keycloak-settings'));
+	ACP.init = function () {
+		Settings.load('oidc', $('.oidc-settings'));
 
-		$('#save').on('click', function() {
-			Settings.save('sso-keycloak', $('.sso-keycloak-settings'), function() {
+		$('#save').on('click', function () {
+			Settings.save('oidc', $('.oidc-settings'), function () {
 				app.alert({
 					type: 'success',
-					alert_id: 'sso-keycloak-saved',
+					alert_id: 'oidc-saved',
 					title: 'Settings Saved',
 					message: 'Please reload your NodeBB to apply these settings',
-					timeout: 5000,
-					clickfn: function() {
+					clickfn: function () {
 						socket.emit('admin.reload');
-					}
+					},
 				});
 			});
 		});
