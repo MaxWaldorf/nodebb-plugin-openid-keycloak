@@ -30,12 +30,12 @@
 				pluginStrategies.push({
 					name: 'keycloak',	// Something unique to your OAuth provider in lowercase, like "github", or "nodebb"
 					oauth2: {
-						authorizationURL: settings.url + '/protocol/openid-connect/auth',
-						tokenURL: settings.url + '/protocol/openid-connect/token',
+						authorizationURL: settings.url + '/realms/master/protocol/openid-connect/auth',
+						tokenURL: settings.url + '/realms/master/protocol/openid-connect/token',
 						clientID: settings.id,
 						clientSecret: settings.secret
 					},
-					userRoute: settings.url + '/protocol/openid-connect/userinfo'
+					userRoute: settings.url + '/realms/master/protocol/openid-connect/userinfo'
 				});
 
 				callback();
