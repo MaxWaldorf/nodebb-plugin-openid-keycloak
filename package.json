@@ -1,6 +1,6 @@
 {
   "name": "nodebb-plugin-openid-keycloak",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "NodeBB Keycloak SSO",
   "main": "library.js",
   "repository": {
@@ -16,7 +16,7 @@
     "single sign on",
     "login",
     "registration",
-    "Keycloak"
+    "keycloak"
   ],
   "author": {
     "name": "MaxWaldorf",

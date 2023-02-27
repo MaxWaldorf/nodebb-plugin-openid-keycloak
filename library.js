@@ -163,7 +163,7 @@
 				url: '/auth/' + constants.name,
 				callbackURL: '/auth/' + constants.name + '/callback',
 				icon: 'fa-check-square',
-				scope: (constants.scope || '').split(','),
+				scope: 'openid profile email',
 			});
 
 			callback(null, strategies);
