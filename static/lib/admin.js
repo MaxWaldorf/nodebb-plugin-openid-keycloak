@@ -1,5 +1,6 @@
+'use strict';
+
 define('admin/plugins/sso-keycloak', ['settings'], function(Settings) {
-	'use strict';
 	/* globals $, app, socket, require */
 
 	var ACP = {};
@@ -14,6 +15,7 @@ define('admin/plugins/sso-keycloak', ['settings'], function(Settings) {
 					alert_id: 'sso-keycloak-saved',
 					title: 'Settings Saved',
 					message: 'Please reload your NodeBB to apply these settings',
+					timeout: 5000,
 					clickfn: function() {
 						socket.emit('admin.reload');
 					}
