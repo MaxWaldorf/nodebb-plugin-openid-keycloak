@@ -28,7 +28,7 @@
 				return settings.hasOwnProperty(key) && settings[key]
 			})) {
 				pluginStrategies.push({
-					name: 'keycloak',	// Something unique to your OAuth provider in lowercase, like "github", or "nodebb"
+					name: 'keycloak2',	// Something unique to your OAuth provider in lowercase, like "github", or "nodebb"
 					oauth2: {
 						authorizationURL: settings.url + '/realms/master/protocol/openid-connect/auth',
 						tokenURL: settings.url + '/realms/master/protocol/openid-connect/token',
@@ -45,32 +45,6 @@
 				callback();
 			}
 		});
-	};
-
-	OAuth.addMiddleware = function(data, callback) {
-		data.app.use(function(req, res, next) {
-			// Only respond to page loads by guests, not api or asset calls
-			var blacklistedRoute = new RegExp('^' + nconf.get('relative_path') + '/(api|vendor|uploads|language|templates|debug|auth)'),
-				blacklistedExt = /\.(css|js|tpl|json|jpg|png|bmp|rss|xml|woff2)$/,
-				hasSession = req.hasOwnProperty('user') && req.user.hasOwnProperty('uid') && parseInt(req.user.uid, 10) > 0;
-
-			if (
-				hasSession	// user logged in
-				|| (req.path.match(blacklistedRoute) || req.path.match(blacklistedExt))	// path matches a blacklist
-			) {
-				return next();
-			} else {
-				meta.settings.getOne('sso-keycloak', 'redirectEnabled', function(err, value) {
-					if (value === 'on') {
-						res.redirect('/auth/' + pluginStrategies[0].name);
-					} else {
-						return next();
-					}
-				})
-			}
-		});
-
-		callback();
 	};
 
 	OAuth.addAdminNavigation = function(header, callback) {
@@ -92,6 +66,7 @@
 			opts.callbackURL = nconf.get('url') + '/auth/' + pluginStrategies[0].name + '/callback';
 
 			passportOAuth.Strategy.prototype.userProfile = function(accessToken, done) {
+				this._oauth2._useAuthorizationHeaderForGET = true;
 				this._oauth2.get(pluginStrategies[0].userRoute, accessToken, function(err, body, res) {
 					if (err) { return done(new InternalOAuthError('failed to fetch user profile', err)); }
 
@@ -108,27 +83,18 @@
 				});
 			};
 
-			passport.use(pluginStrategies[0].name, new passportOAuth(opts, function(token, secret, profile, done) {
-				OAuth.login({
+			opts.passReqToCallback = true;
+
+			passport.use(constants.name, new passportOAuth(opts, async (req, token, secret, profile, done) => {
+				const user = await OAuth.login({
 					oAuthid: profile.id,
 					handle: profile.displayName,
 					email: profile.emails[0].value,
-					isAdmin: profile.isAdmin
-				}, function(err, user) {
-					if (err) {
-						return done(err);
-					}
-
-					plugins.hooks.fire('static:sso-keycloak.login', {
-						user: user,
-						strategy: pluginStrategies[0],
-						profile: profile/*,
-						token: token,
-						secret: secret*/
-					}, function() {
-						done(null, user);
-					});
+					isAdmin: profile.isAdmin,
 				});
+
+				authenticationController.onSuccessfulLogin(req, user.uid);
+				done(null, user);
 			}));
 
 			strategies.push({
@@ -145,9 +111,9 @@
 
 	OAuth.parseUserReturn = function(data, callback) {
 		var profile = {};
-		profile.id = data.ID;
-		profile.displayName = data.user_login;
-		profile.emails = [{ value: data.user_email }];
+		profile.id = data.id;
+		profile.displayName = data.name;
+		profile.emails = [{ value: data.email }];
 
 		callback(null, profile);
 	}
@@ -224,7 +190,7 @@
 			}
 		], function(err) {
 			if (err) {
-				winston.error('[sso-oauth] Could not remove OAuthId data for uid ' + data.uid + '. Error: ' + err);
+				winston.error('[sso-keycloak] Could not remove OAuthId data for uid ' + data.uid + '. Error: ' + err);
 				return callback(err);
 			}
 			callback(null);
