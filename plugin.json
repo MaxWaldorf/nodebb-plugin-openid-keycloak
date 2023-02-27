@@ -5,15 +5,8 @@
   "url": "https://github.com/MaxWaldorf/nodebb-plugin-openid-keycloak",
   "library": "./library.js",
   "hooks": [
-			{ "hook": "static:app.load", "method": "init" },
-			{ "hook": "filter:admin.header.build", "method": "addMenuItem" },
-			{ "hook": "filter:auth.init", "method": "getStrategy" }
-  ],
-	"staticDirs": {
-		"static": "./static"
-	},
-	"acpScripts": [
-		"static/lib/admin.js"
-	],
-	"templates": "./static/templates"
+		{ "hook": "static:user.delete", "method": "deleteUserData" },
+		{ "hook": "filter:user.whitelistFields", "method": "whitelistFields" },
+		{ "hook": "filter:auth.init", "method": "getStrategy" }
+	]
 }

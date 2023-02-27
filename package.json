@@ -1,6 +1,6 @@
 {
   "name": "nodebb-plugin-openid-keycloak",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "NodeBB Keycloak SSO",
   "main": "library.js",
   "repository": {
@@ -26,15 +26,34 @@
 	"bugs": {
 		"url": "https://github.com/MaxWaldorf/nodebb-plugin-openid-keycloak/issues"
 	},
-	"nbbpm": {
-		"compatibility": "^1.12.2"
-	},
-	"devDependencies": {
-		"eslint": "^5.16.0",
-		"eslint-config-airbnb-base": "^12.1.0",
-		"eslint-plugin-import": "^2.8.0"
-	},
-	"dependencies": {
-		"openid-client": "^3.7.4"
-	}
+  "readme": "",
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "async": "^3.2.0",
+    "eslint": "^8.0.0",
+    "passport-oauth": "~1.0.0"
+  },
+  "nbbpm": {
+    "compatibility": "^1.0.1",
+    "index": false
+  },
+  "devDependencies": {
+    "@commitlint/config-angular": "15.0.0",
+    "eslint-config-airbnb-base": "15.0.0",
+    "eslint-plugin-import": "2.27.5",
+    "husky": "8.0.3",
+    "lint-staged": "13.1.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "git add"
+    ]
+  }
 }
