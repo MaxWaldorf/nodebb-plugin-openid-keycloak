@@ -1,7 +1,7 @@
 {
-	"id": "nodebb-plugin-sso-keycloak",
-	"name": "NodeBB Wordpress SSO",
-	"description": "Allows users to log in via a configured Wordpress account",
+	"id": "nodebb-plugin-sso-keycloak2",
+	"name": "NodeBB Keycloak SSO",
+	"description": "Allows users to log in via a configured Keycloak account",
 	"url": "https://github.com/MaxWaldorf/nodebb-plugin-sso-keycloak2",
 	"library": "./library.js",
 	"hooks": [
