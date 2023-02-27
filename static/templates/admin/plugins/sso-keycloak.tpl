@@ -23,6 +23,10 @@
 				<label for="secret">Client Secret</label>
 				<input type="text" name="secret" id="secret" title="Client Secret" class="form-control" placeholder="Client Secret"/ >
 			</div>
+			<div class="form-group">
+				<label for="scope">Client Scope</label>
+				<input type="text" name="scope" id="scope" title="Client Scope" class="form-control" placeholder="Client Scope"/ >
+			</div>
 			<div class="checkbox">
 				<label class="mdl-switch mdl-js-switch mdl-js-ripple-effect">
 					<input class="mdl-switch__input" type="checkbox" name="redirectEnabled">

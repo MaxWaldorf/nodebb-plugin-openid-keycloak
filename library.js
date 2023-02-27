@@ -35,6 +35,7 @@
 						clientID: settings.id,
 						clientSecret: settings.secret
 					},
+					scope: settings.scope,
 					userRoute: settings.url + '/realms/master/protocol/openid-connect/userinfo'
 				});
 
