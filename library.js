@@ -1,23 +1,25 @@
+'use strict';
+
 (function(module) {
-	"use strict";
 
 	var User = require.main.require('./src/user'),
-		Groups = require.main.require('./src/groups'),
-		meta = require.main.require('./src/meta'),
-		db = require.main.require('./src/database'),
-		passport = require.main.require('passport'),
-		nconf = require.main.require('nconf'),
-		winston = require.main.require('winston'),
-		async = require('async'),
+			Groups = require.main.require('./src/groups'),
+			meta = require.main.require('./src/meta'),
+			db = require.main.require('./src/database'),
+			passport = require.main.require('passport'),
+			nconf = require.main.require('nconf'),
+			winston = require.main.require('winston'),
+			async = require('async'),
 
-		pluginStrategies = [],
-		OAuth = {}, passportOAuth, opts;
+			pluginStrategies = [],
+			OAuth = {}, passportOAuth, opts;
 
 	OAuth.init = function(params, callback) {
 		var router = params.router,
-			controllers = require('./controllers');
+				hostControllers = params.controllers,
+				controllers = require('./controllers');
 
-		router.get('/admin/plugins/sso-keycloak', controllers.renderAdminPage);
+		router.get('/admin/plugins/sso-keycloak', hostMiddleware.admin.buildHeader, controllers.renderAdminPage);
 		router.get('/api/admin/plugins/sso-keycloak', controllers.renderAdminPage);
 
 		meta.settings.get('sso-keycloak', function(err, settings) {
@@ -115,7 +117,7 @@
 		// Everything else is optional.
 
 		// Find out what is available by uncommenting this line:
-		// console.log(data);
+		console.log(data);
 
 		var profile = {};
 		profile.id = data.id;
@@ -123,11 +125,11 @@
 		profile.emails = [{ value: data.email }];
 
 		// Do you want to automatically make somebody an admin? This line might help you do that...
-		// profile.isAdmin = data.isAdmin ? true : false;
+		profile.isAdmin = data.isAdmin ? true : false;
 
 		// Delete or comment out the next TWO (2) lines when you are ready to proceed
-		process.stdout.write('===\nAt this point, you\'ll need to customise the above section to id, displayName, and emails into the "profile" object.\n===');
-		return callback(new Error('Congrats! So far so good -- please see server log for details'));
+		//process.stdout.write('===\nAt this point, you\'ll need to customise the above section to id, displayName, and emails into the "profile" object.\n===');
+		//return callback(new Error('Congrats! So far so good -- please see server log for details'));
 
 		// eslint-disable-next-line
 		callback(null, profile);
@@ -175,7 +177,7 @@
 			},
 		], function (err) {
 			if (err) {
-				winston.error('[sso-oauth] Could not remove OAuthId data for uid ' + data.uid + '. Error: ' + err);
+				winston.error('[sso-keycloak] Could not remove OAuthId data for uid ' + data.uid + '. Error: ' + err);
 				return callback(err);
 			}
 
